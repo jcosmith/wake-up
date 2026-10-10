@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../format.dart';
 import '../models/brew_session.dart';
+import '../models/feedback.dart';
 import '../models/recipe.dart';
+import '../models/tuning.dart';
+import '../state/app_state.dart';
+import '../widgets/feedback_sheet.dart';
 import '../widgets/grind_card.dart';
 import 'timer_screen.dart';
 
@@ -17,11 +21,47 @@ class RecipeScreen extends StatefulWidget {
 
 class _RecipeScreenState extends State<RecipeScreen> {
   late double _coffee = widget.recipe.coffeeGrams;
+  List<RecipeFeedback> _feedback = const [];
+  bool _useTuned = false;
 
-  Recipe get recipe => widget.recipe;
+  RecipeTuning get _tuning => RecipeTuning.from(widget.recipe, _feedback);
+
+  /// The version being shown: the original or the community-tuned one.
+  Recipe get recipe =>
+      _useTuned && _tuning.isAvailable ? _tuning.recipe : widget.recipe;
 
   /// Step size for the dose buttons: finer for small doses.
-  double get _doseStep => recipe.coffeeGrams < 20 ? 0.5 : 1;
+  double get _doseStep => widget.recipe.coffeeGrams < 20 ? 0.5 : 1;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadFeedback();
+  }
+
+  Future<void> _loadFeedback() async {
+    final store = AppStateScope.of(context).feedback;
+    final feedback = await store.forRecipe(widget.recipe.id);
+    if (!mounted) return;
+    setState(() => _feedback = feedback);
+  }
+
+  void _selectVariant(bool tuned) {
+    setState(() {
+      _useTuned = tuned;
+      _coffee = recipe.coffeeGrams;
+    });
+  }
+
+  Future<void> _rate() async {
+    if (await showFeedbackSheet(context, recipe)) await _loadFeedback();
+  }
+
+  Future<void> _brew(BrewSession session) async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => TimerScreen(session: session)));
+    await _loadFeedback();
+  }
 
   void _changeDose(double delta) {
     setState(() {
@@ -34,13 +74,20 @@ class _RecipeScreenState extends State<RecipeScreen> {
     final theme = Theme.of(context);
     final session = BrewSession(recipe, coffeeGrams: _coffee);
     return Scaffold(
-      appBar: AppBar(title: Text(recipe.name)),
+      appBar: AppBar(
+        title: Text(recipe.name),
+        actions: [
+          IconButton(
+            tooltip: 'Rate a brew',
+            icon: const Icon(Icons.rate_review_outlined),
+            onPressed: _rate,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.timer_outlined),
         label: const Text('Start brewing'),
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => TimerScreen(session: session)),
-        ),
+        onPressed: () => _brew(session),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
@@ -55,6 +102,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          _VariantCard(
+            tuning: _tuning,
+            tuned: _useTuned && _tuning.isAvailable,
+            onSelect: _selectVariant,
+          ),
+          const SizedBox(height: 8),
           _DoseCard(
             coffee: _coffee,
             onMinus: () => _changeDose(-_doseStep),
@@ -104,7 +157,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          GrindCard(grind: recipe.grind),
+          GrindCard(
+            grind: recipe.grind,
+            offsetMicrons: recipe.grindOffsetMicrons,
+          ),
           const SizedBox(height: 16),
           Text('Steps', style: theme.textTheme.titleLarge),
           for (final step in recipe.steps)
@@ -145,6 +201,93 @@ class _RecipeScreenState extends State<RecipeScreen> {
               ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Picks between the original recipe and the version tuned from feedback.
+/// The original is always offered.
+class _VariantCard extends StatelessWidget {
+  const _VariantCard({
+    required this.tuning,
+    required this.tuned,
+    required this.onSelect,
+  });
+
+  final RecipeTuning tuning;
+  final bool tuned;
+  final ValueChanged<bool> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (!tuning.isAvailable) {
+      return Card(
+        child: ListTile(
+          leading: const Icon(Icons.auto_graph),
+          title: const Text('Tuned version'),
+          subtitle: Text(
+            'Rate your brews to build a tuned version of this recipe '
+            '(${tuning.brews} of ${RecipeTuning.minBrews} ratings).',
+          ),
+        ),
+      );
+    }
+
+    final grinder = AppStateScope.of(context).grinder;
+    final base = tuning.base;
+    final tunedRecipe = tuning.recipe;
+    final doseChange = tunedRecipe.coffeeGrams - base.coffeeGrams;
+    final clicks = grinder.clicksFor(tunedRecipe.grindOffsetMicrons);
+    final changes = [
+      if (doseChange != 0)
+        '${formatGrams(doseChange.abs())} '
+            '${doseChange > 0 ? 'more' : 'less'} coffee '
+            '(${formatRatio(tunedRecipe.ratio)})',
+      if (clicks != 0)
+        'grind ${clicks.abs()} click${clicks.abs() == 1 ? '' : 's'} '
+            '${clicks < 0 ? 'finer' : 'coarser'}',
+    ];
+    final rating = tuning.averageRating!;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Original')),
+                  ButtonSegment(
+                    value: true,
+                    label: Text('Tuned'),
+                    icon: Icon(Icons.auto_graph),
+                  ),
+                ],
+                selected: {tuned},
+                onSelectionChanged: (s) => onSelect(s.first),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              tuned
+                  ? (changes.isEmpty
+                        ? 'Feedback so far says the original is spot on.'
+                        : 'Tuned: ${changes.join(', ')}.')
+                  : 'The recipe as published.',
+              style: theme.textTheme.bodyMedium,
+            ),
+            Text(
+              'Built from ${tuning.brews} rated brews · '
+              'average ${rating.toStringAsFixed(1)} ★',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }

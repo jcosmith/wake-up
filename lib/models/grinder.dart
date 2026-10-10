@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'grind.dart';
 
 /// A click range on a grinder, counted from zero (burrs just touching).
@@ -43,10 +45,20 @@ class HandGrinder {
 
   ClickRange? settingFor(GrindSize size) => settings[size];
 
+  /// Clicks closest to a burr movement of [microns]; negative is finer.
+  int clicksFor(double microns) => (microns / micronsPerClick).round();
+
   /// Human-friendly setting, e.g. "22–28 clicks" or "45–60 clicks (1.5.0–2.0.0)".
-  String describe(GrindSize size) {
-    final range = settings[size];
-    if (range == null) return 'Not recommended';
+  /// [offsetClicks] shifts the range, e.g. for a community-tuned recipe.
+  String describe(GrindSize size, {int offsetClicks = 0}) {
+    final base = settings[size];
+    if (base == null) return 'Not recommended';
+    final range = offsetClicks == 0
+        ? base
+        : ClickRange(
+            max(0, base.min + offsetClicks),
+            max(0, base.max + offsetClicks),
+          );
     final clicks = '$range clicks';
     final perRotation = clicksPerRotation;
     if (perRotation == null) return clicks;

@@ -24,6 +24,14 @@ methods and grind settings for popular hand grinders.
 - **Grinder settings** for Comandante C40, 1Zpresso Q Air, K-Ultra, JX-Pro
   and J-Max, Kingrinder K4 and K6, Timemore C3 and S3, Hario Skerton Pro and
   Porlex Mini II. Your grinder choice is remembered.
+- **Feedback and tuned recipes:** rate a brew (stars, sour ↔ bitter,
+  weak ↔ strong) from the recipe or when the timer finishes. After three
+  ratings a recipe offers a **Tuned** version next to the always-available
+  original: sour or bitter feedback moves the grind finer or coarser (shown
+  in clicks for your grinder), weak or strong feedback changes the dose.
+  Feedback is stored on the device for now; `FeedbackStore` in
+  `lib/feedback/` is the seam for a shared backend that pools everyone's
+  ratings.
 
 Grinder settings are approximate starting points, counted in clicks from
 zero (burrs just touching). Grinders vary unit to unit, so dial in by taste:
@@ -49,9 +57,11 @@ flutter test
 ```
 lib/
   data/        recipes.dart, grinders.dart — all brewing data lives here
-  models/      Recipe, BrewStep, HandGrinder, GrindSize, BrewSession (timer logic)
+  models/      Recipe, BrewStep, HandGrinder, GrindSize, BrewSession (timer logic),
+               RecipeFeedback, RecipeTuning (builds the tuned recipe)
   screens/     home, recipe, timer, grinder settings
   state/       selected grinder (persisted with shared_preferences)
+  feedback/    FeedbackStore: where recipe ratings are kept
 ```
 
 To add a recipe or grinder, add an entry to the matching file in `lib/data/`;

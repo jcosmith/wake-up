@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../format.dart';
 import '../models/brew_session.dart';
+import '../widgets/feedback_sheet.dart';
 
 /// Runs a brew: elapsed time, the current step and when the next one starts.
 class TimerScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _TimerScreenState extends State<TimerScreen> {
   Duration _elapsed = Duration.zero;
   int _lastStep = 0;
   bool _finishedAlerted = false;
+  bool _rated = false;
 
   BrewSession get session => widget.session;
 
@@ -70,6 +72,11 @@ class _TimerScreenState extends State<TimerScreen> {
       _alert();
     }
     setState(() => _elapsed = elapsed);
+  }
+
+  Future<void> _rate() async {
+    final saved = await showFeedbackSheet(context, session.recipe);
+    if (saved && mounted) setState(() => _rated = true);
   }
 
   void _alert() {
@@ -148,6 +155,16 @@ class _TimerScreenState extends State<TimerScreen> {
                       ),
                     ),
                   ),
+                  if (finished) ...[
+                    const SizedBox(height: 16),
+                    Center(
+                      child: FilledButton.tonalIcon(
+                        onPressed: _rated ? null : _rate,
+                        icon: Icon(_rated ? Icons.check : Icons.star_outline),
+                        label: Text(_rated ? 'Thanks!' : 'Rate this brew'),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
