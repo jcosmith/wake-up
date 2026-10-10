@@ -29,6 +29,13 @@ Grinder settings are approximate starting points, counted in clicks from
 zero (burrs just touching). Grinders vary unit to unit, so dial in by taste:
 sour or fast, go finer; bitter or slow, go coarser.
 
+## Install on Android
+
+Every push to `main` builds an APK on GitHub Actions and attaches it to the
+[latest release](https://github.com/jcosmith/wake-up/releases/tag/latest).
+Download `app-release.apk` on your phone and allow installs from unknown
+sources when prompted.
+
 ## Running
 
 ```sh
