@@ -7,14 +7,18 @@ import '../state/app_state.dart';
 /// Shows the grind size for a recipe on the user's grinder, with a shortcut
 /// to switch grinders.
 class GrindCard extends StatelessWidget {
-  const GrindCard({super.key, required this.grind});
+  const GrindCard({super.key, required this.grind, this.offsetMicrons = 0});
 
   final GrindSize grind;
+
+  /// Fine adjustment from tuning; negative is finer.
+  final double offsetMicrons;
 
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final grinder = state.grinder;
+    final offsetClicks = grinder.clicksFor(offsetMicrons);
     final theme = Theme.of(context);
     return Card(
       child: InkWell(
@@ -43,11 +47,19 @@ class GrindCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text(grinder.name, style: theme.textTheme.labelLarge),
                     Text(
-                      grinder.describe(grind),
+                      grinder.describe(grind, offsetClicks: offsetClicks),
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: theme.colorScheme.primary,
                       ),
                     ),
+                    if (offsetClicks != 0)
+                      Text(
+                        '${offsetClicks.abs()} '
+                        'click${offsetClicks.abs() == 1 ? '' : 's'} '
+                        '${offsetClicks < 0 ? 'finer' : 'coarser'} '
+                        'than the original',
+                        style: theme.textTheme.labelMedium,
+                      ),
                     Text(
                       'Approximate starting point — adjust to taste.',
                       style: theme.textTheme.bodySmall,

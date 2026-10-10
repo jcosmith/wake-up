@@ -51,6 +51,7 @@ class Recipe {
     required this.totalTime,
     required this.steps,
     this.iceGrams = 0,
+    this.grindOffsetMicrons = 0,
     this.summary,
     this.tips = const [],
   });
@@ -74,6 +75,10 @@ class Recipe {
   final int? waterTempC;
   final GrindSize grind;
 
+  /// Fine adjustment within the [grind] band, in microns: negative is finer.
+  /// Zero for the published recipes; set by community tuning.
+  final double grindOffsetMicrons;
+
   /// Expected brew time; the timer keeps running past it.
   final Duration totalTime;
   final List<BrewStep> steps;
@@ -85,4 +90,21 @@ class Recipe {
 
   /// Factor to multiply this recipe's quantities by for the given dose.
   double scaleFor(double coffee) => coffee / coffeeGrams;
+
+  Recipe copyWith({double? coffeeGrams, double? grindOffsetMicrons}) => Recipe(
+    id: id,
+    name: name,
+    method: method,
+    source: source,
+    coffeeGrams: coffeeGrams ?? this.coffeeGrams,
+    waterGrams: waterGrams,
+    waterTempC: waterTempC,
+    grind: grind,
+    totalTime: totalTime,
+    steps: steps,
+    iceGrams: iceGrams,
+    grindOffsetMicrons: grindOffsetMicrons ?? this.grindOffsetMicrons,
+    summary: summary,
+    tips: tips,
+  );
 }

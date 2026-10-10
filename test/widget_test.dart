@@ -54,4 +54,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(state.grinder.id, '1zpresso-k-ultra');
   });
+
+  testWidgets('rating brews unlocks a tuned version', (tester) async {
+    await tester.pumpWidget(
+      CoffeeTimerApp(state: AppState(grinderId: 'comandante-c40')),
+    );
+    await tester.tap(find.text('The Ultimate V60'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('0 of 3 ratings'), findsOneWidget);
+
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byTooltip('Rate a brew'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('4 stars'));
+      await tester.tap(find.text('Sour'));
+      await tester.tap(find.text('A bit weak'));
+      await tester.pump();
+      await tester.tap(find.text('Send feedback'));
+      await tester.pumpAndSettle();
+    }
+
+    // The original stays selected until the tuned one is picked.
+    expect(find.text('Original'), findsOneWidget);
+    expect(find.text('30 g'), findsOneWidget);
+    expect(find.text('20–26 clicks'), findsOneWidget);
+
+    await tester.tap(find.text('Tuned'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('more coffee'), findsOneWidget);
+    expect(find.textContaining('finer than the original'), findsOneWidget);
+    expect(find.text('20–26 clicks'), findsNothing);
+  });
 }
